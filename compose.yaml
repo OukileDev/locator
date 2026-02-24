@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
     environment:
       NODE_ENV: ${NODE_ENV}
       BUSINFO_API_URL: ${BUSINFO_API_URL}
@@ -15,13 +16,13 @@ services:
       cache:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   cache:
-    image: redis:8
+    image: redis:8-alpine
     restart: always
     expose:
       - 6379
@@ -30,7 +31,7 @@ services:
     volumes:
       - cache:/data
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 1s
       timeout: 3s
       retries: 5
@@ -55,6 +56,11 @@ services:
       - ./site:/srv
       - caddy_data:/data
       - caddy_config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "echo -e 'GET / HTTP/1.0\\r\\n\\r\\n' | nc -w 1 localhost 80 | head -1 | grep -q 'HTTP/'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   cache:
