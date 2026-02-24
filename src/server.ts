@@ -68,6 +68,10 @@ app.get('/locate/:busId', async (req: Request, res: Response) => {
     }
 });
 
+app.get('/health', (_req: Request, res: Response) => {
+    res.status(200);
+});
+
 // Tout le trafic qui n'est pas géré tombe ici
 app.all('*', (_req: Request, res: Response) => {
     res.status(404);

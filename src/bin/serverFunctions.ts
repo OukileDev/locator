@@ -31,6 +31,6 @@ export async function startPollingBus(busId: string, io: Server, redisClient: Re
             console.error(`[POLLER] Erreur bus ${busId}:`, err);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 6000)); // 6 sec
+        await new Promise(resolve => setTimeout(resolve, 15000)); // 15 sec
     }
 }

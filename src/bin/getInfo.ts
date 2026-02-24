@@ -28,11 +28,11 @@ export async function getInfo(client: RedisClient, key: string): Promise<BusLoca
             if (!settled) {
                 settled = true;
                 tcpClient.destroy();
-                const err = new Error(`Timeout: aucune réponse pour le bus ID "${key}" après 500ms`);
+                const err = new Error(`Timeout: aucune réponse pour le bus ID "${key}" après 1s`);
                 err.name = 'TimeoutError';
                 reject(err);
             }
-        }, 500);
+        }, 1000);
 
         tcpClient.connect(
             Number(process.env.BUS_TRACKER_API_PORT),
