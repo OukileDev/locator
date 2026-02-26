@@ -12,11 +12,8 @@ Cette API servira de backend moderne pour une application mobile ou un site web 
 Ce projet est un projet personnel et n'est pas affilié à Agglobus ou à la RATP.
 
 ## Fonctionnalités
-- Récupération de la liste des arrêts de bus
-- Récupération des lignes de bus
-- Récupération des horaires de passage
 - Localisation en temps réél des bus
-- Caching des données pour améliorer les performances et limiter les appels API sur l'infrastructure d'Agglobus.
+- Caching des données pour améliorer les performances et limiter les requêtes sur l'infrastructure d'Agglobus.
 
 ## AVERTISSEMENT
 Pour des raisons de sécurité les endpoints utilisés pour le dévloppement de l'API ne sont pas accessibles au public.
@@ -24,19 +21,20 @@ Pour des raisons de sécurité les endpoints utilisés pour le dévloppement de 
 Ils sont accessible par un travail de reverse engineering.
 
 ## Stack technique
-- Docker
-- NodeJS 22.17.0 (LTS)
-- ExpressJS
-- Axios
-- Redis
-- Caddy
+- **Docker**
+- **Node.js**
+- **TypeScript**
+- **Express**
+- **Socket.io**
+- **Redis**
+- **xml2js**
+- **Caddy**
 
 ## Installation
-(WIP : Dockerisation du projet)
 1. Clonez le dépôt :
    ```bash
-   git clone https://github.com/LeMocha/modern-agglobus-api
-    cd modern-agglobus-api
+   git clone https://github.com/OukileDev/locator
+    cd locator
     ```
 2. Installez les dépendances :
     ```bash
@@ -45,7 +43,7 @@ Ils sont accessible par un travail de reverse engineering.
 3. Configurez les variables d'environnement :
     ```bash
    cp .env.example .env
-   nano .env # vim m'a traumatisé
+   vim .env
    ```
 4. Lancez le projet :
     ```bash
