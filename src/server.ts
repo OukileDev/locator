@@ -48,6 +48,12 @@ io.on('connection', (socket: Socket) => {
         }
     });
 
+    socket.on('leave_bus', (busId: string) => {
+        if (!idCoherent(busId)) return;
+        socket.leave(`bus:${busId}`);
+        console.log(`[SOCKET] Client ${socket.id} a quitté le bus ${busId}`);
+    });
+
     socket.on('disconnect', () => {
         console.log(`[SOCKET] Client déconnecté : ${socket.id}`);
     });
