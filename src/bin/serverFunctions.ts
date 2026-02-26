@@ -40,6 +40,8 @@ export async function fetchBusLocation(
  * Démarre la boucle globale de polling.
  * Un seul setInterval tourne pour tous les bus actifs.
  * Toutes les requêtes TCP sont envoyées en parallèle (le serveur répond avec le busID).
+ * Quand aucun bus n'est suivi, le client TCP est mis en veille pour éviter les
+ * déconnexions/reconnexions intempestives. Il reprend dès qu'un bus est à nouveau suivi.
  */
 export function startGlobalPoller(io: Server, tcp: TcpConnectionManager, redis: RedisClient): void {
     console.log('[POLLER] Démarrage de la boucle globale.');
@@ -48,7 +50,17 @@ export function startGlobalPoller(io: Server, tcp: TcpConnectionManager, redis: 
         const rooms = io.sockets.adapter.rooms;
         const busRooms = [...rooms.keys()].filter(r => r.startsWith('bus:'));
 
-        if (busRooms.length === 0) return;
+        if (busRooms.length === 0) {
+            if (!tcp.isPaused()) {
+                tcp.pause();
+            }
+            return;
+        }
+
+        // Des bus sont actifs : on s'assure que le TCP est bien réveillé
+        if (tcp.isPaused()) {
+            tcp.resume();
+        }
 
         console.log(`[POLLER] Cycle : ${busRooms.length} bus à interroger.`);
 

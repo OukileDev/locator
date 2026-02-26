@@ -39,6 +39,11 @@ io.on('connection', (socket: Socket) => {
         socket.join(`bus:${busId}`);
         console.log(`[SOCKET] Client ${socket.id} suit le bus ${busId}`);
 
+        // Si le TCP est en veille (plus aucun bus n'était suivi), on le réveille
+        if (tcp.isPaused()) {
+            tcp.resume();
+        }
+
         // Envoi immédiat : depuis le cache si dispo, sinon TCP
         try {
             const data = await fetchBusLocation(busId, tcp, redis);

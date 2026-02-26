@@ -26,6 +26,7 @@ export class TcpConnectionManager {
     private socket: net.Socket | null = null;
     private connected = false;
     private destroyed = false;
+    private paused = false;
 
     // Requêtes en attente de réponse, indexées par busId
     private pending = new Map<string, PendingRequest>();
@@ -83,7 +84,7 @@ export class TcpConnectionManager {
         }
         this.pending.clear();
 
-        if (!this.destroyed) {
+        if (!this.destroyed && !this.paused) {
             console.log(`[TCP] Reconnexion dans 3s...`);
             setTimeout(() => this.connect(), 3000);
         }
@@ -173,6 +174,34 @@ export class TcpConnectionManager {
                 lon: d.X[0],
             });
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Mise en veille / réveil volontaires
+    // -------------------------------------------------------------------------
+
+    /** Coupe la connexion TCP intentionnellement. Aucune reconnexion automatique ne sera tentée. */
+    pause(): void {
+        if (this.paused || this.destroyed) return;
+        this.paused = true;
+        console.log('[TCP] Mise en veille : aucun bus suivi.');
+        this.socket?.destroy();
+        this.socket = null;
+        this.connected = false;
+        this.buffer = '';
+    }
+
+    /** Rétablit la connexion TCP après une mise en veille. */
+    resume(): void {
+        if (!this.paused || this.destroyed) return;
+        this.paused = false;
+        console.log('[TCP] Réveil : reprise de la connexion.');
+        this.connect();
+    }
+
+    /** Indique si le manager est actuellement en veille. */
+    isPaused(): boolean {
+        return this.paused;
     }
 
     // -------------------------------------------------------------------------
