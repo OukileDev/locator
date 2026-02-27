@@ -3,7 +3,8 @@ name: 🐳 Build & Push Docker image
 on:
   push:
     branches:
-      - main
+      - prod
+      - dev
   workflow_dispatch:
 
 env:
@@ -36,7 +37,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' }}
             type=sha,prefix=sha-
 
       - name: 🛠️ Set up Docker Buildx
