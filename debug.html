@@ -1,0 +1,211 @@
+<!-- Cette page a été 100% générée par intelligence artificielle (c'est du debug) -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>DEBUG - Oukile (HTTP & WS)</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #1f1f1f; padding: 15px; border-bottom: 2px solid #00ff00; display: flex; justify-content: space-between; align-items: center; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 350px; background: #1e1e1e; padding: 20px; border-right: 1px solid #333; overflow-y: auto; }
+        .card { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
+        h3 { margin-top: 0; color: #00ff00; font-size: 0.9rem; text-transform: uppercase; }
+        input { background: #121212; color: #00ff00; border: 1px solid #444; padding: 8px; width: 100%; box-sizing: border-box; margin-bottom: 10px; border-radius: 4px; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; transition: 0.2s; }
+        .btn-ws { background: #00ff00; color: #000; }
+        .btn-http { background: #0088ff; color: #fff; }
+        .btn-leave { background: #ff4444; color: #fff; }
+        .btn-reset { background: #555; color: #fff; }
+        button:hover { opacity: 0.8; }
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        #map { flex: 2; background: #222; }
+        .log-area { flex: 1; background: #000; color: #00ff00; font-family: 'Courier New', Courier, monospace; padding: 10px; font-size: 0.85rem; overflow-y: auto; border-top: 2px solid #333; }
+        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background-color: #00ff00; }
+        .offline { background-color: #ff4444; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div><strong>Oukile Location Debugger</strong> v1.0</div>
+    <div>
+        <span id="ws-status-dot" class="status-dot offline"></span>
+        WS: <span id="ws-status-text">Déconnecté</span>
+    </div>
+</header>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="card">
+            <h3>Option 1 : WebSocket (Multi-Bus)</h3>
+            <p style="font-size: 0.8rem; color: #aaa;">S'abonne à plusieurs rooms simultanément.</p>
+            <input type="text" id="wsBusId" placeholder="ID du Bus (ex: 440)">
+            <button class="btn-ws" onclick="joinWS()">REJOINDRE LA ROOM</button>
+            <button class="btn-leave" onclick="leaveWS()">QUITTER / RESET WS</button>
+        </div>
+
+        <div class="card">
+            <h3>Option 2 : HTTP (One-Shot)</h3>
+            <p style="font-size: 0.8rem; color: #aaa;">Écrase le marqueur HTTP précédent.</p>
+            <input type="text" id="httpBusId" placeholder="ID du Bus (ex: 217)">
+            <button class="btn-http" onclick="fetchHTTP()">REQUÊTE HTTP GET</button>
+        </div>
+
+        <div class="card">
+            <h3>Actions & Infos</h3>
+            <div id="info-display" style="font-size: 0.85rem; margin-bottom: 10px;">
+                Bus suivis (WS) : <span id="current-tracking" style="color: #00ff00;">Aucun</span><br>
+                Listeners dans la room : <span id="room-count" style="color: #00ff00;">-</span>
+            </div>
+            <button class="btn-reset" onclick="resetMap()">RESET CARTE & MARKERS</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div id="map"></div>
+        <div class="log-area" id="console-log">
+            > Système prêt.
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = "http://localhost"; 
+    const socket = io(API_BASE);
+    
+    // Init Carte Bourges
+    const map = L.map('map').setView([47.081, 2.398], 14);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    // Stockage des marqueurs
+    const wsMarkers = {}; // Dictionnaire { busId: marker }
+    let httpMarker = null; // Un seul marqueur pour le One-shot
+    const trackedBusIds = new Set();
+
+    function log(msg, type = "info") {
+        const consoleLog = document.getElementById('console-log');
+        const time = new Date().toLocaleTimeString();
+        const colors = { error: "#ff4444", http: "#0088ff", ws: "#00ff00" };
+        const color = colors[type] || "#00ff00";
+        consoleLog.innerHTML += `<div><span style="color: #666">[${time}]</span> <span style="color: ${color}">${msg}</span></div>`;
+        consoleLog.scrollTop = consoleLog.scrollHeight;
+    }
+
+    // Gestion du rendu sur la map
+    function updateWSMarker(lat, lon, id) {
+        if (!wsMarkers[id]) {
+            wsMarkers[id] = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color: #00ff00; color: black; padding: 2px 5px; border-radius: 4px; font-weight: bold; border: 1px solid black;">${id}</div>`,
+                    iconSize: [28, 18]
+                })
+            }).addTo(map);
+        } else {
+            wsMarkers[id].setLatLng([lat, lon]);
+        }
+        wsMarkers[id].bindPopup(`<b>Bus Temps Réel</b><br>ID: ${id}<br>Lat: ${lat}<br>Lon: ${lon}`).openPopup();
+    }
+
+    function updateHTTPMarker(lat, lon, id) {
+        // Effacer le précédent marqueur HTTP s'il existe (One-shot)
+        if (httpMarker) {
+            map.removeLayer(httpMarker);
+        }
+        httpMarker = L.marker([lat, lon], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: #0088ff; color: white; padding: 2px 5px; border-radius: 4px; font-weight: bold; border: 1px solid white;">${id}</div>`,
+                iconSize: [28, 18]
+            })
+        }).addTo(map);
+        httpMarker.bindPopup(`<b>Bus One-Shot (HTTP)</b><br>ID: ${id}`).openPopup();
+        map.panTo([lat, lon]);
+    }
+
+    // LOGIQUE WEBSOCKET
+    socket.on('connect', () => {
+        document.getElementById('ws-status-dot').className = "status-dot online";
+        document.getElementById('ws-status-text').innerText = "Connecté";
+    });
+
+    socket.on('busUpdate', (data) => {
+        log(`WS REÇU : ${JSON.stringify(data)}`, "ws");
+        const lat = parseFloat(data.lat || data.Lat);
+        const lon = parseFloat(data.lon || data.Lon);
+        const id = data.id || data.busID;
+
+        if (lat && lon) {
+            updateWSMarker(lat, lon, id);
+        }
+    });
+
+    socket.on('room_count', (data) => {
+        document.getElementById('room-count').innerText = data.count;
+    });
+
+    function joinWS() {
+        const id = document.getElementById('wsBusId').value;
+        if (!id) return;
+        trackedBusIds.add(id);
+        document.getElementById('current-tracking').innerText = Array.from(trackedBusIds).join(', ');
+        log(`WS : Inscription bus:${id}`);
+        socket.emit('join_bus', id);
+    }
+
+    function leaveWS() {
+        log("WS : Déconnexion pour reset les pollers.");
+        socket.disconnect();
+        trackedBusIds.clear();
+        document.getElementById('current-tracking').innerText = "Aucun";
+        document.getElementById('room-count').innerText = "-";
+        
+        // Nettoyer les marqueurs WS
+        Object.keys(wsMarkers).forEach(id => {
+            map.removeLayer(wsMarkers[id]);
+            delete wsMarkers[id];
+        });
+
+        setTimeout(() => socket.connect(), 500);
+    }
+
+    // LOGIQUE HTTP
+    async function fetchHTTP() {
+        const id = document.getElementById('httpBusId').value;
+        if (!id) return;
+        log(`HTTP : Appel GET /locate/${id}...`, "http");
+        
+        try {
+            const response = await fetch(`${API_BASE}/locate/${id}`);
+            if (!response.ok) throw new Error(`Erreur ${response.status}`);
+            const data = await response.json();
+            const lat = parseFloat(data.lat || data.Lat);
+            const lon = parseFloat(data.lon || data.Lon);
+            updateHTTPMarker(lat, lon, data.id || id);
+        } catch (err) {
+            log(`HTTP ERREUR : ${err.message}`, "error");
+        }
+    }
+
+    function resetMap() {
+        // Supprime tout
+        Object.keys(wsMarkers).forEach(id => map.removeLayer(wsMarkers[id]));
+        if (httpMarker) map.removeLayer(httpMarker);
+        
+        // Reset variables
+        Object.keys(wsMarkers).forEach(key => delete wsMarkers[key]);
+        httpMarker = null;
+        
+        log("Carte et marqueurs réinitialisés.");
+    }
+</script>
+</body>
+</html>

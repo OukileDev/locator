@@ -93,3 +93,6 @@ typings/
 #IDEA files
 .idea/
 Mapping des extremites de lignes
+
+# MacOS shit
+.DS_Store
