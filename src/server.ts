@@ -26,7 +26,9 @@ const tcp = new TcpConnectionManager(
     Number(process.env.BUS_TRACKER_API_PORT),
 );
 
-const redis = createClient({ url: 'redis://redis:6379' })
+// Utilisation de la variable d'env REDIS_URL si elle existe, sinon fallback sur le nom du service K8s
+const redisUrl = process.env.REDIS_URL || 'redis://redis:6379';
+const redis = createClient({ url: redisUrl })
     .on('error', (err: Error) => console.error('[REDIS] Erreur :', err));
 
 // --- LOGIQUE SOCKET.IO ---
@@ -39,12 +41,10 @@ io.on('connection', (socket: Socket) => {
         socket.join(`bus:${busId}`);
         console.log(`[SOCKET] Client ${socket.id} suit le bus ${busId}`);
 
-        // Si le TCP est en veille (plus aucun bus n'était suivi), on le réveille
         if (tcp.isPaused()) {
             tcp.resume();
         }
 
-        // Envoi immédiat : depuis le cache si dispo, sinon TCP
         try {
             const data = await fetchBusLocation(busId, tcp, redis);
             socket.emit('busUpdate', data);
@@ -64,6 +64,14 @@ io.on('connection', (socket: Socket) => {
     });
 });
 
+// 1. Health Check sur "/" pour Kubernetes (car ta sonde tape sur "/")
+app.get('/', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
+
+app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+});
 
 app.get('/locate/:busId', async (req: Request, res: Response) => {
     console.log(`[EXPRESS] GET /locate/${req.params.busId}`);
@@ -85,18 +93,16 @@ app.get('/locate/:busId', async (req: Request, res: Response) => {
     }
 });
 
-app.get('/health', (_req: Request, res: Response) => {
-    res.status(200).end();
-});
-
-// Tout le trafic qui n'est pas géré tombe ici
 app.all('*', (_req: Request, res: Response) => {
     res.status(404).end();
 });
 
+const PORT = 5000;
+const HOST = '0.0.0.0'; 
+
 redis.connect().then(() => {
-    httpServer.listen(5000, () => {
-        console.log(`[SERVER] Démarré sur http://localhost:5000`);
+    httpServer.listen(PORT, HOST, () => {
+        console.log(`[SERVER] Démarré et accessible sur http://${HOST}:${PORT}`);
         startGlobalPoller(io, tcp, redis);
     });
 });
