@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 
 # Copier les manifestes et installer TOUTES les dépendances (dev incluses)
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copier les sources et compiler
 COPY tsconfig.json ./
