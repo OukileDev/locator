@@ -6,35 +6,19 @@ services:
     restart: always
     environment:
       NODE_ENV: ${NODE_ENV}
-      BUSINFO_API_URL: ${BUSINFO_API_URL}
-      BUSINFO_API_TOWN: ${BUSINFO_API_TOWN}
+      REDIS_URL: ${REDIS_URL}
       BUS_TRACKER_API_SERVER: ${BUS_TRACKER_API_SERVER}
       BUS_TRACKER_API_PORT: ${BUS_TRACKER_API_PORT}
     expose:
       - 5000
-    depends_on:
-      cache:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  cache:
-    image: redis:8-alpine
-    restart: always
-    expose:
-      - 6379
-    command: redis-server --save 20 1 --loglevel warning --maxmemory 1g --maxmemory-policy allkeys-lru
-    mem_limit: 1g
-    volumes:
-      - cache:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 1s
-      timeout: 3s
-      retries: 5
+    networks:
+      - default
+      - test_default
 
   web:
     build:
@@ -63,7 +47,10 @@ services:
       retries: 5
 
 volumes:
-  cache:
-    driver: local
   caddy_data:
   caddy_config:
+
+networks:
+  default:
+  test_default:
+    external: true

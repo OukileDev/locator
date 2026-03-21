@@ -73,26 +73,6 @@ app.get('/health', (_req: Request, res: Response) => {
     res.status(200).send('OK');
 });
 
-app.get('/locate/:busId', async (req: Request, res: Response) => {
-    console.log(`[EXPRESS] GET /locate/${req.params.busId}`);
-
-    if (!idCoherent(req.params.busId)) {
-        res.status(400).end();
-        return;
-    }
-
-    try {
-        const response = await fetchBusLocation(req.params.busId, tcp, redis);
-        res.json(response);
-    } catch (err: unknown) {
-        if (err instanceof Error && err.message.includes('Timeout')) {
-            res.status(404).end();
-        } else {
-            res.status(500).end();
-        }
-    }
-});
-
 app.all('*', (_req: Request, res: Response) => {
     res.status(404).end();
 });
