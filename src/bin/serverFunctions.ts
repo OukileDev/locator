@@ -11,9 +11,9 @@ export function idCoherent(busId: string): boolean {
     return true;
 }
 
-const POLL_INTERVAL_MS = 15000;
-// TTL du cache légèrement inférieur à l'intervalle de polling
-const CACHE_TTL_S = POLL_INTERVAL_MS / 1000 - 2;
+const POLL_INTERVAL_MS = 10000;
+// TTL du cache légèrement supérieur à l'intervalle de polling
+const CACHE_TTL_S = POLL_INTERVAL_MS / 1000 + 2;
 const CACHE_PREFIX = 'bus:';
 
 /**
